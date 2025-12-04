@@ -42,6 +42,11 @@ since there is no "==" or "if/else" in lc3, so we must use addition and branch t
 - how to justify whether the game is over.
 - how to know who win the game
 - how to output the final winner?
+- how to let the game can play many times, not just for once?
+
+we initiallize the game board memory every time when the game start
+
+
 
 
 
