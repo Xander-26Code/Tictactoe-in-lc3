@@ -46,7 +46,7 @@ since there is no "==" or "if/else" in lc3, so we must use addition and branch t
 
 we initiallize the game board memory every time when the game start
 
-
+2m 9
 
 
 

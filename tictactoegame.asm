@@ -17,7 +17,6 @@ LOOP_GAME
     ADD R0, R0, #0
     BRp GAME_OVER_WIN
 
-    JSR CHECK_DRAW
     ADD R0, R0, #0
     BRp GAME_OVER_DRAW
 
@@ -193,6 +192,52 @@ UPDATE_BOARD
     LD R2, SAVE_R2
     LD R7, SAVE_R7
     RET
+
+
+CHECK_WIN
+    ST R0, SAVE_R0
+    ST R1, SAVE_R1
+    ST R2, SAVE_R2
+    ST R3, SAVE_R3
+    ST R4, SAVE_R4
+    ST R5, SAVE_R5
+    ST R6, SAVE_R6
+    ST R7, SAVE_R7
+
+    LEA R1, BOARD ; point to the memory of board
+    LD R2, CUR_PLAYER ; Load the current player ('X' or 'O')
+    AND R3, R3, #0 ;let R3 be the winloop counter
+    NOT R2, R2
+    ADD R2, R2, #1 ; R2 = -CUR_PLAYER
+
+CHECK_WIN_LOOP
+    LDR R4, WINS, R3 ; Load the first index of the winning
+COMPARE_COMBO
+    LDR R5, R1, R4 ; Load the cell content
+    ADD R5, R5, R2 ; R5 = CellContent - CUR_PLAYER
+    BRnp CHECK_NEXT_COMBO ; If not equal, check next combo
+    ADD R4, R4, #1 ; Move to second index
+    COMPARE_COMBO
+CHECK_NEXT_COMBO
+    ADD R3, R3, #3 ; Move to the next winning combo
+    ADD R1, R4, #0 ; Reset R1 to point to board
+    ADD R6, R3, #-24 ; There are 8 winning combos
+    BRp CHECK_WIN_LOOP ; If not done, continue checking
+    AND R0, R0, #0 ; No winner
+    BRnzp GAME_OVER_DRAW
+
+
+    LD R0, SAVE_R0
+    LD R1, SAVE_R1
+    LD R2, SAVE_R2
+    LD R3, SAVE_R3
+    LD R4, SAVE_R4
+    LD R5, SAVE_R5
+    LD R6, SAVE_R6
+    LD R7, SAVE_R7
+
+    RET
+
  ;The data area
     BOARD .BLKW	9  ; 9 spaces for the board
     CUR_PLAYER .FILL x20 ; the current player ('X' or 'O'), but the defalut is space
@@ -207,10 +252,25 @@ UPDATE_BOARD
     CHOOSE_MSG .STRINGZ "Choose your player (X/O): "
     PROMPT_USERINPUT .STRINGZ "Enter your move (0-8): "
 
+
+
+    ; Winning Combinations (Indices 0-8)
+WINS        .FILL #0 .FILL #1 .FILL #2  
+            .FILL #3 .FILL #4 .FILL #5  
+            .FILL #6 .FILL #7 .FILL #8  
+            .FILL #0 .FILL #3 .FILL #6  
+            .FILL #1 .FILL #4 .FILL #7  
+            .FILL #2 .FILL #5 .FILL #8  
+            .FILL #0 .FILL #4 .FILL #8  
+            .FILL #2 .FILL #4 .FILL #6  
+
+
     SAVE_R0     .BLKW 1
     SAVE_R1     .BLKW 1
     SAVE_R2     .BLKW 1
     SAVE_R3     .BLKW 1
     SAVE_R4     .BLKW 1
+    SAVE_R5     .BLKW 1
+    SAVE_R6     .BLKW 1
     SAVE_R7     .BLKW 1
 .END
