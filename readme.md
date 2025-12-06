@@ -1,4 +1,4 @@
-## TicTacToe Game In LC3 mkkkkkkAssembly
+## TicTacToe Game In LC3 Assembly
 
 1. ### The Purpose of the project
 
@@ -29,7 +29,13 @@ Be able to implement the tictactoe game in LC3 assembly language. The tictactoe 
 4. #### The implementation 
 
 - how to show the game board?
+
+We use loop to print out the grids and the elements of the board, we allocate the board a 9
+
 - How to let the user to choose the sides?
+
+we prompt the user to input which sides they want to choose, adn use `GETC` to get the user's input, then use CUR_PLAYER  to store the sides of player.
+
 - how to store the information of every small square on the chessboard?
 
 we use .BLKW to allocate blocks of memory to store the data("X","O")
@@ -39,6 +45,9 @@ we use .BLKW to allocate blocks of memory to store the data("X","O")
 since there is no "==" or "if/else" in lc3, so we must use addition and branch to implement that
 
 - how to update the data in small square?
+
+we only need to update the `BOARD`
+
 - how to justify whether the game is over.
 - how to know who win the game
 - how to output the final winner?
@@ -46,7 +55,7 @@ since there is no "==" or "if/else" in lc3, so we must use addition and branch t
 
 we initiallize the game board memory every time when the game start
 
-2m 9
+
 
 
 

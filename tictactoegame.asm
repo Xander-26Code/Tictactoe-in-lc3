@@ -2,6 +2,10 @@
 
 START
     JSR	INIT_BOARD    ; initialize the board with spaces
+    
+    ; [FIX] Initialize move counter
+    AND R0, R0, #0
+    ST R0, MOVES_COUNT
 
     CHOOSE_PLAYER
 
@@ -13,12 +17,19 @@ LOOP_GAME
 
     JSR UPDATE_BOARD
 
+    ; [FIX] Increment move counter
+    LD R0, MOVES_COUNT
+    ADD R0, R0, #1
+    ST R0, MOVES_COUNT
+
     JSR CHECK_WIN
     ADD R0, R0, #0
     BRp GAME_OVER_WIN
 
-    ADD R0, R0, #0
-    BRp GAME_OVER_DRAW
+    ; [FIX] Check for Draw (Moves == 9) explicitly
+    LD R0, MOVES_COUNT
+    ADD R0, R0, #-9
+    BRz GAME_OVER_DRAW
 
     ; Switch Player
 
@@ -79,7 +90,7 @@ PRINT_BOARD
     AND R2, R2, #0 ;let R2 be the counter for rows
 
 LOOP_PRINT_BOARD
-    LDR, R0, R1, #0 ; Load the current cell
+    LDR R0, R1, #0 ; Load the current cell
     OUT ; Print the cell content
     ADD R1, R1, #1 ; Move the pointer to the next cell
 
@@ -143,7 +154,7 @@ INIT_LOOP
 
 
 CHOOSE_PLAYER
-    ST RO, SAVE_R0
+    ST R0, SAVE_R0
     ST R1, SAVE_R1
     ST R7, SAVE_R7
     LEA R0, CHOOSE_MSG
@@ -167,9 +178,12 @@ GET_MOVE
     LEA R0, PROMPT_USERINPUT
     PUTS
     GETC
-    ADD R0, R0, #-48 ; Convert ASCII code to integer,because GETC get the ASCII code not real integer 
-    OUT
+    ; [FIX] Removed converting ASCII to integer then OUTing it (which caused garbage)
+    OUT ; Just echo the character
 
+    ADD R0, R0, #-16
+    ADD R0, R0, #-16
+    ADD R0, R0, #-16 ; Convert to integer for logic (R0 = R0 - 48)
 
     ADD R3, R0, #0; store the place where the player wants to put their mark in R3
     LD R0, SAVE_R0
@@ -184,9 +198,18 @@ UPDATE_BOARD
     ST R7, SAVE_R7
     ST R2, SAVE_R2
     LEA R1, BOARD ; point to the memory of board
-    LDR R2, R1, R3 ; Load the current cell content
+    
+    ; [FIX] Cannot use LDR/STR with R3 as offset. Must calculate address in R1.
+    ADD R1, R1, R3 ; R1 = BOARD address + Offset (R3)
+    
+    ; LDR R2, R1, R3 -> LDR R2, R1, #0
+    LDR R2, R1, #0 ; Load the current cell content
+    
     LD R0, CUR_PLAYER ; Load the current player ('X' or 'O')
-    STR R0, R1, R3 ; Update the board with the player's mark
+    
+    ; STR R0, R1, R3 -> STR R0, R1, #0
+    STR R0, R1, #0 ; Update the board with the player's mark
+    
     LD R0, SAVE_R0
     LD R1, SAVE_R1
     LD R2, SAVE_R2
@@ -204,30 +227,57 @@ CHECK_WIN
     ST R6, SAVE_R6
     ST R7, SAVE_R7
 
+    ; [FIX] Rewritten CHECK_WIN to correctly handle strides and non-contiguous wins
+    
     LEA R1, BOARD ; point to the memory of board
     LD R2, CUR_PLAYER ; Load the current player ('X' or 'O')
-    AND R3, R3, #0 ;let R3 be the winloop counter
+    
+    ; Calculate -CUR_PLAYER
     NOT R2, R2
-    ADD R2, R2, #1 ; R2 = -CUR_PLAYER
+    ADD R2, R2, #1 
+    
+    LEA R4, WINS      ; R4 points to start of WINS table
+    AND R5, R5, #0
+    ADD R5, R5, #8    ; R5 = Loop counter (8 possibilities)
 
 CHECK_WIN_LOOP
-    LDR R4, WINS, R3 ; Load the first index of the winning
-COMPARE_COMBO
-    LDR R5, R1, R4 ; Load the cell content
-    ADD R5, R5, R2 ; R5 = CellContent - CUR_PLAYER
-    BRnp CHECK_NEXT_COMBO ; If not equal, check next combo
-    ADD R4, R4, #1 ; Move to second index
-    COMPARE_COMBO
+    ; Check 1st pos
+    LDR R6, R4, #0    ; Get index 1 from WINS
+    LEA R1, BOARD
+    ADD R1, R1, R6    ; R1 = Board + index1
+    LDR R3, R1, #0    ; R3 = Content
+    ADD R3, R3, R2    ; Check if == CUR_PLAYER
+    BRnp CHECK_NEXT_COMBO
+
+    ; Check 2nd pos
+    LDR R6, R4, #1    ; Get index 2 from WINS
+    LEA R1, BOARD
+    ADD R1, R1, R6
+    LDR R3, R1, #0
+    ADD R3, R3, R2
+    BRnp CHECK_NEXT_COMBO
+
+    ; Check 3rd pos
+    LDR R6, R4, #2    ; Get index 3 from WINS
+    LEA R1, BOARD
+    ADD R1, R1, R6
+    LDR R3, R1, #0
+    ADD R3, R3, R2
+    BRnp CHECK_NEXT_COMBO
+    
+    ; Winning!
+    AND R0, R0, #0
+    ADD R0, R0, #1
+    BRnzp END_CHECK_WIN
+
 CHECK_NEXT_COMBO
-    ADD R3, R3, #3 ; Move to the next winning combo
-    ADD R1, R4, #0 ; Reset R1 to point to board
-    ADD R6, R3, #-24 ; There are 8 winning combos
-    BRp CHECK_WIN_LOOP ; If not done, continue checking
-    AND R0, R0, #0 ; No winner
-    BRnzp GAME_OVER_DRAW
+    ADD R4, R4, #3    ; Move to next winning combo (stride 3)
+    ADD R5, R5, #-1   ; Decrement loop counter
+    BRp CHECK_WIN_LOOP
+    
+    AND R0, R0, #0    ; No winner
 
-
-    LD R0, SAVE_R0
+END_CHECK_WIN
     LD R1, SAVE_R1
     LD R2, SAVE_R2
     LD R3, SAVE_R3
@@ -235,7 +285,6 @@ CHECK_NEXT_COMBO
     LD R5, SAVE_R5
     LD R6, SAVE_R6
     LD R7, SAVE_R7
-
     RET
 
  ;The data area
@@ -244,15 +293,15 @@ CHECK_NEXT_COMBO
     CHAR_X .FILL x58    ; ASCII 'X'
     CHAR_O .FILL x4F    ; ASCII 'O'
     VERTICAL_BAR .FILL x7C ; ASCII '|'
-    HORIZONTAL_BAR .STRINGZ	" ---|---|---"
+    HORIZONTAL_BAR .STRINGZ	" ---|---|---\n"
     CHAR_SPACE .FILL x20 ; ASCII space
-    WIN_MSG_1 .STRINGZ "Player "
-    WIN_MSG_2 .STRINGZ " wins! Congratulations!"
-    DRAW_MSG .STRINGZ "It's a draw! nb!" 
+    WIN_MSG_1 .STRINGZ "\nPlayer "
+    WIN_MSG_2 .STRINGZ " wins! Congratulations!\n"
+    DRAW_MSG .STRINGZ "\nIt's a draw! nb!\n" 
     CHOOSE_MSG .STRINGZ "Choose your player (X/O): "
     PROMPT_USERINPUT .STRINGZ "Enter your move (0-8): "
 
-
+    MOVES_COUNT .FILL #0  ; [FIX] Added variable for tracking moves
 
     ; Winning Combinations (Indices 0-8)
 WINS        .FILL #0 .FILL #1 .FILL #2  
