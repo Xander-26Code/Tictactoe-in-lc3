@@ -9,7 +9,7 @@ START
     AND R0, R0, #0
     ST R0, MOVES_COUNT
 
-    JSR CHOOSE_PLAYER  ; [FIX] Changed label to JSR call
+    JSR CHOOSE_PLAYER
 
 LOOP_GAME
 
@@ -66,9 +66,7 @@ GAME_OVER_DRAW
     PUTS
     HALT
 
-; the global data area
-; Placed here to be within 9-bit offset range,256, otherwise the assembler will  report error
-
+; --- Global Data Block ---
 
 MOVES_COUNT .FILL #0
 BOARD       .BLKW 9
@@ -82,7 +80,7 @@ WIN_MSG_1   .STRINGZ "\nPlayer "
 WIN_MSG_2   .STRINGZ " wins! Congratulations!\n"
 DRAW_MSG    .STRINGZ "\nIt's a draw! nb!\n" 
 
-;Subroutines 
+; --- Subroutines ---
 
 PRINT_BOARD
     ST R0, PB_SAVE_R0
@@ -94,39 +92,57 @@ PRINT_BOARD
     AND R3, R3, #0 
 
     LD R0, PB_NEWLINE
-    PUTS 
+    OUT  
 
-    LEA R1, BOARD 
+    LD R1, PB_PTR_BOARD ; R1 will the pointer to the BOARD
     AND R2, R2, #0 
 
 LOOP_PRINT_BOARD
-    LDR R0, R1, #0 
-    OUT 
-    ADD R1, R1, #1 
-
-    LD R0, PB_V_BAR
-    PUTS 
-
-    LDR R0, R1, #0 
-    OUT 
-    ADD R1, R1, #1 
-
-    LD R0, PB_V_BAR
-    PUTS 
+    ; [UI FIX] trhe format will be like: " Cell " (Space, Cell, Space)
+    LD R0, CHAR_SPACE
+    OUT ; Pre-padding
     
     LDR R0, R1, #0 
+    OUT ; Cell Content
+    
+    LD R0, CHAR_SPACE
+    OUT ; Post-padding
+    
+    ADD R1, R1, #1 
+
+    LD R0, PB_V_BAR
+    OUT  
+
+    ; Cell 2
+    LD R0, CHAR_SPACE
+    OUT 
+    LDR R0, R1, #0 
+    OUT 
+    LD R0, CHAR_SPACE
+    OUT 
+    ADD R1, R1, #1 
+
+    LD R0, PB_V_BAR
+    OUT  
+    
+    ; Cell 3
+    LD R0, CHAR_SPACE
+    OUT
+    LDR R0, R1, #0 
+    OUT
+    LD R0, CHAR_SPACE
     OUT
     ADD R1, R1, #1
 
     LD R0, PB_NEWLINE
-    PUTS
+    OUT 
 
     ADD R2, R2, #1
     ADD R4, R2, #-3
     BRz END_PRINT_BOARD
     
-    LEA R0, PB_H_BAR
-    PUTS
+    LEA R0, PB_H_BAR ; "---|---|---"
+    PUTS 
     BRnzp LOOP_PRINT_BOARD
 
 END_PRINT_BOARD
@@ -138,9 +154,10 @@ END_PRINT_BOARD
     RET
 
 ; Local constants for PRINT_BOARD
+PB_PTR_BOARD .FILL BOARD
 PB_NEWLINE .FILL x0A
 PB_V_BAR   .FILL x7C
-PB_H_BAR   .STRINGZ " ---|---|---\n"
+PB_H_BAR   .STRINGZ "---|---|---\n" ; [UI FIX] Aligned with 3-char cells
 PB_SAVE_R0 .BLKW 1
 PB_SAVE_R1 .BLKW 1
 PB_SAVE_R2 .BLKW 1
@@ -153,7 +170,7 @@ INIT_BOARD
     ST R1, IB_SAVE_R1
     ST R7, IB_SAVE_R7
 
-    LEA R1, BOARD
+    LD R1, IB_PTR_BOARD
     AND R0, R0, #0
     LD R2, CHAR_SPACE 
     ADD R3, R0, #9    
@@ -167,6 +184,7 @@ INIT_LOOP
     LD R7, IB_SAVE_R7
     RET
 
+IB_PTR_BOARD .FILL BOARD
 IB_SAVE_R0 .BLKW 1
 IB_SAVE_R1 .BLKW 1
 IB_SAVE_R7 .BLKW 1
@@ -181,13 +199,15 @@ CHOOSE_PLAYER
 
     GETC
     OUT
-    ST R0, CUR_PLAYER 
+    LD R1, CP_PTR_CUR_PLAYER
+    STR R0, R1, #0 
     
     LD R0, CP_SAVE_R0
     LD R1, CP_SAVE_R1
     LD R7, CP_SAVE_R7
     RET
 
+CP_PTR_CUR_PLAYER .FILL CUR_PLAYER
 CP_MSG .STRINGZ "Choose your player (X/O): "
 CP_SAVE_R0 .BLKW 1
 CP_SAVE_R1 .BLKW 1
@@ -199,26 +219,61 @@ GET_MOVE
     ST R1, GM_SAVE_R1
     ST R7, GM_SAVE_R7
     ST R3, GM_SAVE_R3
+    ST R4, GM_SAVE_R4
+    ST R5, GM_SAVE_R5
+
+    ; [UI FIX] Show "Player X, enter..."
+    LEA R0, GM_MSG_TURN
+    PUTS
+    
+    LD R1, GM_PTR_CUR_PLAYER
+    LDR R0, R1, #0
+    OUT
+    
     LEA R0, GM_PROMPT
     PUTS
+
+GET_MOVE_LOOP
     GETC
-    OUT 
+    ; Check validity: '0' <= Input <= '8'
+    LD R4, GM_ASCII_0
+    NOT R4, R4
+    ADD R4, R4, #1  ; R4 = -'0'
+    
+    ADD R5, R0, R4  ; R5 = Input - '0'
+    BRn GET_MOVE_LOOP ; If negative (e.g., newline), ignore and retry
+    
+    ADD R4, R5, #-8
+    BRp GET_MOVE_LOOP ; If > 8, ignore and retry
 
-    ADD R0, R0, #-16
-    ADD R0, R0, #-16
-    ADD R0, R0, #-16 
+    ; Valid input
+    OUT             ; Echo valid input
 
-    ADD R3, R0, #0
+    ADD R3, R5, #0  ; Return Integer value (0-8) in R3
+    
+    LD R0, GM_NEWLINE
+    OUT
+
     LD R0, GM_SAVE_R0
     LD R1, GM_SAVE_R1
     LD R7, GM_SAVE_R7
+    LD R4, GM_SAVE_R4
+    LD R5, GM_SAVE_R5
+    ; R3 is return value
     RET
 
-GM_PROMPT .STRINGZ "Enter your move (0-8): "
+GM_PTR_CUR_PLAYER .FILL CUR_PLAYER
+GM_MSG_TURN .STRINGZ "Player "
+GM_PROMPT   .STRINGZ ", enter your move (0-8): "
+GM_ASCII_0  .FILL x30
+GM_NEWLINE  .FILL x0A
+
 GM_SAVE_R0 .BLKW 1
 GM_SAVE_R1 .BLKW 1
 GM_SAVE_R7 .BLKW 1
 GM_SAVE_R3 .BLKW 1
+GM_SAVE_R4 .BLKW 1
+GM_SAVE_R5 .BLKW 1
 
 
 UPDATE_BOARD
@@ -226,11 +281,15 @@ UPDATE_BOARD
     ST R1, UB_SAVE_R1
     ST R7, UB_SAVE_R7
     ST R2, UB_SAVE_R2
-    LEA R1, BOARD 
+    
+    LD R1, UB_PTR_BOARD 
     ADD R1, R1, R3 
     
     LDR R2, R1, #0 
-    LD R0, CUR_PLAYER 
+    
+    LD R2, UB_PTR_CUR_PLAYER
+    LDR R0, R2, #0 
+    
     STR R0, R1, #0 
     
     LD R0, UB_SAVE_R0
@@ -239,6 +298,8 @@ UPDATE_BOARD
     LD R7, UB_SAVE_R7
     RET
 
+UB_PTR_BOARD .FILL BOARD
+UB_PTR_CUR_PLAYER .FILL CUR_PLAYER
 UB_SAVE_R0 .BLKW 1
 UB_SAVE_R1 .BLKW 1
 UB_SAVE_R2 .BLKW 1
@@ -255,8 +316,9 @@ CHECK_WIN
     ST R6, CW_SAVE_R6
     ST R7, CW_SAVE_R7
 
-    LEA R1, BOARD 
-    LD R2, CUR_PLAYER 
+    LD R1, CW_PTR_BOARD
+    LD R2, CW_PTR_CUR_PLAYER
+    LDR R2, R2, #0
     
     NOT R2, R2
     ADD R2, R2, #1 
@@ -267,21 +329,21 @@ CHECK_WIN
 
 CHECK_WIN_LOOP
     LDR R6, R4, #0    
-    LEA R1, BOARD
+    LD R1, CW_PTR_BOARD
     ADD R1, R1, R6    
     LDR R3, R1, #0    
     ADD R3, R3, R2   
     BRnp CHECK_NEXT_COMBO
 
     LDR R6, R4, #1    
-    LEA R1, BOARD
+    LD R1, CW_PTR_BOARD
     ADD R1, R1, R6
     LDR R3, R1, #0
     ADD R3, R3, R2
     BRnp CHECK_NEXT_COMBO
 
     LDR R6, R4, #2    
-    LEA R1, BOARD
+    LD R1, CW_PTR_BOARD
     ADD R1, R1, R6
     LDR R3, R1, #0
     ADD R3, R3, R2
@@ -308,7 +370,18 @@ END_CHECK_WIN
     LD R7, CW_SAVE_R7
     RET
 
-; [FIX] Split .FILLs and placed WINS near usage
+CW_PTR_BOARD      .FILL BOARD
+CW_PTR_CUR_PLAYER .FILL CUR_PLAYER
+
+CW_SAVE_R0 .BLKW 1
+CW_SAVE_R1 .BLKW 1
+CW_SAVE_R2 .BLKW 1
+CW_SAVE_R3 .BLKW 1
+CW_SAVE_R4 .BLKW 1
+CW_SAVE_R5 .BLKW 1
+CW_SAVE_R6 .BLKW 1
+CW_SAVE_R7 .BLKW 1
+
 WINS    .FILL #0 
         .FILL #1 
         .FILL #2  
@@ -333,14 +406,5 @@ WINS    .FILL #0
         .FILL #2 
         .FILL #4 
         .FILL #6  
-
-CW_SAVE_R0 .BLKW 1
-CW_SAVE_R1 .BLKW 1
-CW_SAVE_R2 .BLKW 1
-CW_SAVE_R3 .BLKW 1
-CW_SAVE_R4 .BLKW 1
-CW_SAVE_R5 .BLKW 1
-CW_SAVE_R6 .BLKW 1
-CW_SAVE_R7 .BLKW 1
 
 .END
