@@ -28,32 +28,43 @@ Be able to implement the tictactoe game in LC3 assembly language. The tictactoe 
 
 4. #### The implementation 
 
-- how to show the game board?
+- **How to show the game board?**
 
-We use loop to print out the grids and the elements of the board, we allocate the board a 9
+  We use a `PRINT_BOARD` subroutine to display the grid. It uses a loop to iterate through the memory allocated for the board. For formatting, it prints vertical bars (`|`) between cells and horizontal lines (`---|---|---`) between rows. We use a counter to detect when to print a newline (every 3 cells).
 
-- How to let the user to choose the sides?
+- **How to let the user to choose the sides?**
 
-we prompt the user to input which sides they want to choose, adn use `GETC` to get the user's input, then use CUR_PLAYER  to store the sides of player.
+  We allow the user to decide who goes first. We output a prompt using `PUTS`, accept a single character using `GETC`, echo it to the screen using `OUT`, and store this character in the `CUR_PLAYER` memory location.
 
-- how to store the information of every small square on the chessboard?
+- **How to store the information of every small square on the chessboard?**
 
-we use .BLKW to allocate blocks of memory to store the data("X","O")
+  We use `.BLKW 9` to allocate a contiguous block of 9 memory words labeled `BOARD`. Each word corresponds to a cell on the grid (indices 0-8) and stores the ASCII code of 'X', 'O', or ' ' (Space).
 
-- how to switch the player?
+- **How to switch the player?**
 
-since there is no "==" or "if/else" in lc3, so we must use addition and branch to implement that
+  Since LC-3 lacks high-level `if/else` constructs, we use arithmetic and branching (`BR`). We load the current player's char, subtract 'X'. If the result is zero (meaning it was 'X'), we load 'O' and store it. Otherwise, we load 'X'. This toggles `CUR_PLAYER` between turns.
 
-- how to update the data in small square?
+- **How to update the data in small square?**
 
-we only need to update the `BOARD`
+  When the user inputs a number (0-8), we calculate the target memory address: `Target_Address = Base_Address_of_BOARD + Offset`. We then use the `STR` instruction to write the current player's symbol into that specific location.
 
-- how to justify whether the game is over.
-- how to know who win the game
-- how to output the final winner?
-- how to let the game can play many times, not just for once?
+- **How to justify whether the game is over?**
 
-we initiallize the game board memory every time when the game start
+  The game ends if a player wins or if the board is full (Draw). 
+  - We use a `MOVES_COUNT` variable to track the total moves. If it reaches 9 with no winner, it's a draw.
+  - We call the `CHECK_WIN` subroutine after every move to check for a victory.
+
+- **How to know who win the game?**
+
+  We defined a lookup table `WINS` containing all 8 winning combinations (rows, columns, diagonals). The `CHECK_WIN` subroutine loops through these combinations. For each line, it checks if the 3 corresponding cells in `BOARD` all contain the `CUR_PLAYER`'s symbol. If any line matches, the current player has won.
+
+- **How to output the final winner?**
+
+  If a win is detected, the program branches to `GAME_OVER_WIN`. It uses `LEA` and `PUTS` to print the congratulatory message strings and `LD/OUT` to print the winning player's symbol ('X' or 'O').
+
+- **How to let the game can play many times, not just for once?**
+
+  We use the `INIT_BOARD` subroutine at the `START` of the program. It loops through the `BOARD` memory range and resets every cell to an ASCII Space. It also resets `MOVES_COUNT` to 0. This clears any previous game state.
 
 
 
