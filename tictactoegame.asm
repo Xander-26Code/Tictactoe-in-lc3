@@ -193,24 +193,52 @@ IB_SAVE_R7 .BLKW 1
 CHOOSE_PLAYER
     ST R0, CP_SAVE_R0
     ST R1, CP_SAVE_R1
+    ST R2, CP_SAVE_R2
     ST R7, CP_SAVE_R7
     LEA R0, CP_MSG
     PUTS
 
+CP_LOOP
     GETC
+    
+    ; Check X
+    LD R2, CP_CHAR_X
+    NOT R2, R2
+    ADD R2, R2, #1
+    ADD R2, R0, R2
+    BRz CP_VALID
+    
+    ; Check O
+    LD R2, CP_CHAR_O
+    NOT R2, R2
+    ADD R2, R2, #1
+    ADD R2, R0, R2
+    BRz CP_VALID
+    
+    ; Invalid
+    LEA R0, CP_ERR_MSG
+    PUTS
+    BRnzp CP_LOOP
+
+CP_VALID
     OUT
     LD R1, CP_PTR_CUR_PLAYER
     STR R0, R1, #0 
     
     LD R0, CP_SAVE_R0
     LD R1, CP_SAVE_R1
+    LD R2, CP_SAVE_R2
     LD R7, CP_SAVE_R7
     RET
 
 CP_PTR_CUR_PLAYER .FILL CUR_PLAYER
 CP_MSG .STRINGZ "Choose your player (X/O): "
+CP_ERR_MSG .STRINGZ "\nInvalid choice! Please enter X or O: "
+CP_CHAR_X .FILL x58
+CP_CHAR_O .FILL x4F
 CP_SAVE_R0 .BLKW 1
 CP_SAVE_R1 .BLKW 1
+CP_SAVE_R2 .BLKW 1
 CP_SAVE_R7 .BLKW 1
 
 
@@ -246,8 +274,26 @@ GET_MOVE_LOOP
     ADD R4, R5, #-8
     BRp GET_MOVE_LOOP ; If > 8, ignore and retry
 
+    ; Check if cell is occupied
+    LD R1, GM_PTR_BOARD
+    ADD R1, R1, R5      ; R1 = Address of selected cell
+    LDR R1, R1, #0      ; R1 = Content of cell
+    LD R4, GM_CHAR_SPACE
+    NOT R4, R4
+    ADD R4, R4, #1
+    ADD R1, R1, R4      ; Check if Content == Space
+    BRz GM_VALID_MOVE
+
+    ; Cell is occupied
+    LEA R0, GM_MSG_OCCUPIED
+    PUTS
+    BRnzp GET_MOVE_LOOP
+
+GM_VALID_MOVE
     ; Valid input
-    OUT             ; Echo valid input
+    LD R0, GM_ASCII_0   ; Reload ASCII '0' to print
+    ADD R0, R0, R5      ; Restore R0 = '0' + value
+    OUT                 ; Echo valid input
 
     ADD R3, R5, #0  ; Return Integer value (0-8) in R3
     
@@ -265,6 +311,9 @@ GET_MOVE_LOOP
 GM_PTR_CUR_PLAYER .FILL CUR_PLAYER
 GM_MSG_TURN .STRINGZ "Player "
 GM_PROMPT   .STRINGZ ", enter your move (0-8): "
+GM_MSG_OCCUPIED .STRINGZ "\nInvalid move (occupied)! Try again: "
+GM_PTR_BOARD .FILL BOARD
+GM_CHAR_SPACE .FILL x20
 GM_ASCII_0  .FILL x30
 GM_NEWLINE  .FILL x0A
 
